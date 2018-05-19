@@ -5,6 +5,8 @@
 import requests
 import requests.auth
 
+_USER_AGENT_ = "simpleRedditClient/0.1 by ZestyZeke"
+
 def grabCredentials():
     p = ""
     u = ""
@@ -26,10 +28,18 @@ def main():
     client_auth = requests.auth.HTTPBasicAuth(clientID, clientSecret)
     post_data = {"grant_type": "password", "username": username, \
                  "password": password}
-    headers = {"User-Agent": "simpleRedditClient/0.1 by ZestyZeke"}
+    headers = {"User-Agent": _USER_AGENT_ }
     response = requests.post("https://www.reddit.com/api/v1/access_token", \
                              auth=client_auth, data = post_data, \
                              headers=headers)
+    responseDict = response.json()
+    token = responseDict['access_token']
+    tokenType = responseDict['token_type']
+
+    headers = {"Authorization": "{} {}".format(tokenType, token), \
+               "User-Agent": _USER_AGENT_}
+    response = requests.get("https://oauth.reddit.com/api/v1/me", \
+                            headers=headers)
     print (response.json())
 
 if __name__ == "__main__":

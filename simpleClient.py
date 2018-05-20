@@ -4,6 +4,8 @@
 
 import requests
 import requests.auth
+import string
+import re
 
 _USER_AGENT_ = "simpleRedditClient/0.1 by ZestyZeke"
 
@@ -50,11 +52,23 @@ def give_url(subreddit, title, name):
     url = "https://www.reddit.com/r/{}/comments/".format(subreddit)
     nameID = name[name.find("_")+1:]
     title_no_caps = title.lower().replace(' ', '_')
+    punct = string.punctuation.replace('_', '')
+    punct += "|"
+
+    outtab = ""
+    for i in punct:
+        outtab += "+"
+
+    title_no_caps = title_no_caps.translate(str.maketrans(punct, outtab))
+    title_no_caps = title_no_caps.replace('+', '')
+
+    title_no_caps = re.sub('_+', '_', title_no_caps)
+    title_no_caps = title_no_caps[:48]
+    if title_no_caps[-1] == "_":
+        title_no_caps = title_no_caps[:len(title_no_caps) - 1]
+
     url += "{}/{}".format(nameID, title_no_caps)
     print (url)
-    # @TODO: need to remove punctuation
-    # @TODO: need to cut off title by a certain amount
-    # @TODO: figure it out
 
 def main():
     username, password, clientID, clientSecret = grabCredentials()

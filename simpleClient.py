@@ -22,6 +22,40 @@ def grabCredentials():
         p = myFile.read().replace('\n', '')
     return u, p, cI, cS
 
+def parse_json(responseDict):
+    for childDict in responseDict['children']:
+        print ("new childDict")
+        # note: each one of these is a dict
+        #print (childDict['title'])
+        #for key, val in childDict.items():
+        #    print (key)
+        #for key, val in childDict['data'].items():
+        #    print (key)
+        dataDict = childDict['data']
+
+        # print url, title and subreddit
+        print ("url: " + dataDict['url'])
+        print ("title: " + dataDict['title'])
+        print ("subreddit: " + dataDict['subreddit'])
+        print ("name: " + dataDict['name'])
+        #print (childDict)
+        give_url(dataDict['subreddit'], dataDict['title'], dataDict['name'])
+
+def give_url(subreddit, title, name):
+    # format is
+    # https://www.reddit.com/r/<subredditWithCaps>/comments/<partOfName>/<title_no_caps>
+    # the name should be something like <t3_id>, <partOfName> refers to the 'id' part
+    # the <title_no_caps> should also replace spaces with underscores
+    print (subreddit + title + name)
+    url = "https://www.reddit.com/r/{}/comments/".format(subreddit)
+    nameID = name[name.find("_")+1:]
+    title_no_caps = title.lower().replace(' ', '_')
+    url += "{}/{}".format(nameID, title_no_caps)
+    print (url)
+    # @TODO: need to remove punctuation
+    # @TODO: need to cut off title by a certain amount
+    # @TODO: figure it out
+
 def main():
     username, password, clientID, clientSecret = grabCredentials()
 
@@ -46,8 +80,11 @@ def main():
                             headers=headers)
     #print (response.json())
     responseDict = response.json()
-    for key, val in responseDict.items():
-        print ("{}: {}".format(key, val))
+    #parse_json(responseDict)
+    #for key, val in responseDict.items():
+        #print ("new key, val")
+        #print ("{}: {}".format(key, val))
+    parse_json(responseDict['data'])
 
 if __name__ == "__main__":
     main()

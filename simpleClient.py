@@ -32,15 +32,22 @@ def main():
     response = requests.post("https://www.reddit.com/api/v1/access_token", \
                              auth=client_auth, data = post_data, \
                              headers=headers)
+
     responseDict = response.json()
+    #print (responseDict['scope'])
     token = responseDict['access_token']
     tokenType = responseDict['token_type']
 
     headers = {"Authorization": "{} {}".format(tokenType, token), \
                "User-Agent": _USER_AGENT_}
-    response = requests.get("https://oauth.reddit.com/api/v1/me", \
+    #response = requests.get("https://oauth.reddit.com/api/v1/scopes", \
+    #                        headers=headers)
+    response = requests.get("https://oauth.reddit.com/user/ZestyZeke/saved?limit=2", \
                             headers=headers)
-    print (response.json())
+    #print (response.json())
+    responseDict = response.json()
+    for key, val in responseDict.items():
+        print ("{}: {}".format(key, val))
 
 if __name__ == "__main__":
     main()

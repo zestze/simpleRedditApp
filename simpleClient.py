@@ -24,32 +24,21 @@ def grabCredentials():
         p = myFile.read().replace('\n', '')
     return u, p, cI, cS
 
-def parse_json(responseDict):
+def parse_response(responseDict):
     for childDict in responseDict['children']:
-        # note: each one of these is a dict
-        #print (childDict['title'])
-        #for key, val in childDict.items():
-        #    print (key)
-        #for key, val in childDict['data'].items():
-        #    print (key)
         dataDict = childDict['data']
-        print (type(dataDict))
         print ("https://www.reddit.com" + dataDict['permalink'])
-        #for key, val in dataDict.items():
-            #print ("key: " + key)
-            #print ("value: " + str(val))
 
         # print url, title and subreddit
         #print ("url: " + dataDict['url'])
         #print ("title: " + dataDict['title'])
         #print ("subreddit: " + dataDict['subreddit'])
         #print ("name: " + dataDict['name'])
-        #print (childDict)
-        #try:
-            #url = give_url(dataDict['subreddit'], dataDict['title'], dataDict['name'])
-        #except Exception as e:
-        #    raise e
-        #print (url)
+    print (responseDict.keys())
+    done = False
+    if len(responseDict['children']) == 0:
+        done = True
+    return responseDict['after'], done
 
 def give_url(subreddit, title, name):
     """
@@ -80,6 +69,17 @@ def give_url(subreddit, title, name):
 
     return url
 
+def check_rate_limit(response):
+    Xused = response.headers['X-Ratelimit-Used']
+    Xrem = response.headers['X-Ratelimit-Remaining']
+    Xres = response.headers['X-Ratelimit-Reset']
+    if Xrem == "0": # note: is of type str
+        raise RuntimeError("no remaining requests for this period") 
+    print ("Used Requests: " + Xused)
+    print ("Remaining Requests: " + Xrem)
+    print ("Seconds to end of period: " + Xres)
+    return Xused, Xrem, Xres
+
 def main():
     username, password, clientID, clientSecret = grabCredentials()
 
@@ -97,10 +97,24 @@ def main():
 
     headers = {"Authorization": "{} {}".format(tokenType, token), \
                "User-Agent": _USER_AGENT_}
-    response = requests.get("https://oauth.reddit.com/user/ZestyZeke/saved?show=all", \
+    response = requests.get("https://oauth.reddit.com/user/ZestyZeke/saved", \
                             headers=headers)
+    Xused, Xrem, Xres = check_rate_limit(response)
     responseDict = response.json()
-    parse_json(responseDict['data'])
+    afterSet = set()
+    after, done = parse_response(responseDict['data'])
+    afterSet.add(after)
+    while not done:
+        response = requests.get("https://oauth.reddit.com/user/ZestyZeke/saved" \
+                                 + "?after={}".format(after), \
+                                 headers=headers)
+        Xused, Xrem, Xres = check_rate_limit(response)
+        responseDict = response.json()
+        after, done = parse_response(responseDict['data'])
+        if after in afterSet:
+            break
+        else:
+            afterSet.add(after)
 
 if __name__ == "__main__":
     main()

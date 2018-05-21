@@ -26,7 +26,6 @@ def grabCredentials():
 
 def parse_json(responseDict):
     for childDict in responseDict['children']:
-        print ("new childDict")
         # note: each one of these is a dict
         #print (childDict['title'])
         #for key, val in childDict.items():
@@ -34,41 +33,52 @@ def parse_json(responseDict):
         #for key, val in childDict['data'].items():
         #    print (key)
         dataDict = childDict['data']
+        print (type(dataDict))
+        print ("https://www.reddit.com" + dataDict['permalink'])
+        #for key, val in dataDict.items():
+            #print ("key: " + key)
+            #print ("value: " + str(val))
 
         # print url, title and subreddit
-        print ("url: " + dataDict['url'])
-        print ("title: " + dataDict['title'])
-        print ("subreddit: " + dataDict['subreddit'])
-        print ("name: " + dataDict['name'])
+        #print ("url: " + dataDict['url'])
+        #print ("title: " + dataDict['title'])
+        #print ("subreddit: " + dataDict['subreddit'])
+        #print ("name: " + dataDict['name'])
         #print (childDict)
-        give_url(dataDict['subreddit'], dataDict['title'], dataDict['name'])
+        #try:
+            #url = give_url(dataDict['subreddit'], dataDict['title'], dataDict['name'])
+        #except Exception as e:
+        #    raise e
+        #print (url)
 
 def give_url(subreddit, title, name):
-    # format is
-    # https://www.reddit.com/r/<subredditWithCaps>/comments/<partOfName>/<title_no_caps>
-    # the name should be something like <t3_id>, <partOfName> refers to the 'id' part
-    # the <title_no_caps> should also replace spaces with underscores
-    print (subreddit + title + name)
+    """
+    format is
+    https://www.reddit.com/r/<subredditWithCaps>/comments/<partOfName>/<title_no_caps>
+    the name should be something like <t3_id>, <partOfName> refers to the 'id' part
+    the <title_no_caps> should also replace spaces with underscores
+    """
     url = "https://www.reddit.com/r/{}/comments/".format(subreddit)
     nameID = name[name.find("_")+1:]
-    title_no_caps = title.lower().replace(' ', '_')
+    title = title.lower().replace(' ', '_')
     punct = string.punctuation.replace('_', '')
     punct += "|"
 
-    outtab = ""
-    for i in punct:
-        outtab += "+"
+    outtab = ''.join(["+" for p in punct])
 
-    title_no_caps = title_no_caps.translate(str.maketrans(punct, outtab))
-    title_no_caps = title_no_caps.replace('+', '')
+    title = title.translate(str.maketrans(punct, outtab))
+    title = title.replace('+', '')
 
-    title_no_caps = re.sub('_+', '_', title_no_caps)
-    title_no_caps = title_no_caps[:48]
-    if title_no_caps[-1] == "_":
-        title_no_caps = title_no_caps[:len(title_no_caps) - 1]
+    title = re.sub('_+', '_', title)
+    title = title[:48]
+    if title[-1] == "_":
+        title = title[:len(title) - 1]
+    if title[0] == "_":
+        title = title[1:]
 
-    url += "{}/{}".format(nameID, title_no_caps)
-    print (url)
+    url += "{}/{}".format(nameID, title)
+
+    return url
 
 def main():
     username, password, clientID, clientSecret = grabCredentials()
@@ -82,22 +92,14 @@ def main():
                              headers=headers)
 
     responseDict = response.json()
-    #print (responseDict['scope'])
     token = responseDict['access_token']
     tokenType = responseDict['token_type']
 
     headers = {"Authorization": "{} {}".format(tokenType, token), \
                "User-Agent": _USER_AGENT_}
-    #response = requests.get("https://oauth.reddit.com/api/v1/scopes", \
-    #                        headers=headers)
-    response = requests.get("https://oauth.reddit.com/user/ZestyZeke/saved?limit=2", \
+    response = requests.get("https://oauth.reddit.com/user/ZestyZeke/saved?show=all", \
                             headers=headers)
-    #print (response.json())
     responseDict = response.json()
-    #parse_json(responseDict)
-    #for key, val in responseDict.items():
-        #print ("new key, val")
-        #print ("{}: {}".format(key, val))
     parse_json(responseDict['data'])
 
 if __name__ == "__main__":

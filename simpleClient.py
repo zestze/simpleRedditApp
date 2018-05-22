@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+simple python client for grabbing a users saved links by subreddit
 """
 
 import requests
@@ -24,17 +25,18 @@ def grabCredentials():
         p = myFile.read().replace('\n', '')
     return u, p, cI, cS
 
-def parse_response(responseDict):
+def parse_response(responseDict, filterSubreddit):
     for childDict in responseDict['children']:
         dataDict = childDict['data']
-        print ("https://www.reddit.com" + dataDict['permalink'])
+        if filterSubreddit == "" or dataDict['subreddit'] == filterSubreddit:
+            print ("https://www.reddit.com" + dataDict['permalink'])
 
         # print url, title and subreddit
         #print ("url: " + dataDict['url'])
         #print ("title: " + dataDict['title'])
         #print ("subreddit: " + dataDict['subreddit'])
         #print ("name: " + dataDict['name'])
-    print (responseDict.keys())
+    #print (responseDict.keys())
     done = False
     if len(responseDict['children']) == 0:
         done = True
@@ -75,12 +77,12 @@ def check_rate_limit(response):
     Xres = response.headers['X-Ratelimit-Reset']
     if Xrem == "0": # note: is of type str
         raise RuntimeError("no remaining requests for this period") 
-    print ("Used Requests: " + Xused)
-    print ("Remaining Requests: " + Xrem)
-    print ("Seconds to end of period: " + Xres)
+    #print ("Used Requests: " + Xused)
+    #print ("Remaining Requests: " + Xrem)
+    #print ("Seconds to end of period: " + Xres)
     return Xused, Xrem, Xres
 
-def main():
+def authorize():
     username, password, clientID, clientSecret = grabCredentials()
 
     client_auth = requests.auth.HTTPBasicAuth(clientID, clientSecret)
@@ -95,6 +97,11 @@ def main():
     token = responseDict['access_token']
     tokenType = responseDict['token_type']
 
+    return tokenType, token
+
+def main(filterSubreddit=""):
+    tokenType, token = authorize()
+
     headers = {"Authorization": "{} {}".format(tokenType, token), \
                "User-Agent": _USER_AGENT_}
     response = requests.get("https://oauth.reddit.com/user/ZestyZeke/saved", \
@@ -102,7 +109,7 @@ def main():
     Xused, Xrem, Xres = check_rate_limit(response)
     responseDict = response.json()
     afterSet = set()
-    after, done = parse_response(responseDict['data'])
+    after, done = parse_response(responseDict['data'], filterSubreddit)
     afterSet.add(after)
     while not done:
         response = requests.get("https://oauth.reddit.com/user/ZestyZeke/saved" \
@@ -110,11 +117,12 @@ def main():
                                  headers=headers)
         Xused, Xrem, Xres = check_rate_limit(response)
         responseDict = response.json()
-        after, done = parse_response(responseDict['data'])
+        after, done = parse_response(responseDict['data'], filterSubreddit)
         if after in afterSet:
             break
         else:
             afterSet.add(after)
 
 if __name__ == "__main__":
-    main()
+    f = "HunterXHunter"
+    main(f)

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
 simple python client for grabbing a users saved links by subreddit
-
-@TODO: replace ZestyZeke with username vals
 """
 
 import requests
@@ -12,30 +10,6 @@ import re
 import sys
 
 _USER_AGENT_ = "simpleRedditClient/0.1 by ZestyZeke"
-
-class UserAPIobject:
-    username = ""
-    password = ""
-    clientID = ""
-    clientSecret = ""
-    def __init__(self):
-        with open('client.id', 'r') as file1, \
-                open('client.secret', 'r') as file2, \
-                open('user.name', 'r') as file3, \
-                open('user.pass', 'r') as file4:
-            self.clientID = file1.read().replace('\n', '')
-            self.clientSecret = file2.read().replace('\n', '')
-            self.username = file3.read().replace('\n', '')
-            self.password = file4.read().replace('\n', '')
-
-    def authorize(self):
-        client_auth = requests.auth.HTTPBasicAuth(clientID, clientSecret)
-        post_data = {"grant_type": "password", "username": self.username,
-                     "password": self.password}
-        headers = {"User-Agent": _USER_AGENT_}
-        response = requests.post("https://www.reddit.com/api/v1/access_token",
-                                 auth=client_auth, data=post_data,
-                                 headers=headers)
 
 def parse_response(responseDict, filterSubreddit):
     """
@@ -48,10 +22,7 @@ def parse_response(responseDict, filterSubreddit):
         if filterSubreddit == "" or dataDict['subreddit'].lower() == filterSubreddit.lower():
             print ("https://www.reddit.com" + dataDict['permalink'])
 
-    done = False
-    if len(responseDict['children']) == 0:
-        done = True
-    return responseDict['after'], done
+    return responseDict['after']
 
 def check_rate_limit(response):
     """
@@ -66,51 +37,73 @@ def check_rate_limit(response):
         raise RuntimeError("no remaining requests for this period") 
     return Xused, Xrem, Xres
 
-def authorize():
-    username, password, clientID, clientSecret = grabCredentials()
 
-    client_auth = requests.auth.HTTPBasicAuth(clientID, clientSecret)
-    post_data = {"grant_type": "password", "username": username, \
-                 "password": password}
-    headers = {"User-Agent": _USER_AGENT_ }
-    response = requests.post("https://www.reddit.com/api/v1/access_token", \
-                             auth=client_auth, data = post_data, \
-                             headers=headers)
+class UserAPIobject:
+    username = ""
+    password = ""
+    clientID = ""
+    clientSecret = ""
+    sessionToken = ""
+    sessionTokenType = ""
 
-    responseDict = response.json()
-    token = responseDict['access_token']
-    tokenType = responseDict['token_type']
+    def __init__(self):
+        with open('client.id', 'r') as file1, \
+                open('client.secret', 'r') as file2, \
+                open('user.name', 'r') as file3, \
+                open('user.pass', 'r') as file4:
+            self.clientID = file1.read().replace('\n', '')
+            self.clientSecret = file2.read().replace('\n', '')
+            self.username = file3.read().replace('\n', '')
+            self.password = file4.read().replace('\n', '')
 
-    return tokenType, token
-
-def main(filterSubreddit=""):
-    tokenType, token = authorize()
-
-    headers = {"Authorization": "{} {}".format(tokenType, token), \
-               "User-Agent": _USER_AGENT_}
-    response = requests.get("https://oauth.reddit.com/user/ZestyZeke/saved", \
-                            headers=headers)
-    Xused, Xrem, Xres = check_rate_limit(response)
-    responseDict = response.json()
-    afterSet = set()
-    after, done = parse_response(responseDict['data'], filterSubreddit)
-    afterSet.add(after)
-    while not done:
-        response = requests.get("https://oauth.reddit.com/user/ZestyZeke/saved" \
-                                 + "?after={}".format(after), \
+    def authorize(self):
+        client_auth = requests.auth.HTTPBasicAuth(self.clientID, self.clientSecret)
+        post_data = {"grant_type": "password", "username": self.username,
+                     "password": self.password}
+        headers = {"User-Agent": _USER_AGENT_}
+        response = requests.post("https://www.reddit.com/api/v1/access_token",
+                                 auth=client_auth, data=post_data,
                                  headers=headers)
-        Xused, Xrem, Xres = check_rate_limit(response)
+
         responseDict = response.json()
-        after, done = parse_response(responseDict['data'], filterSubreddit)
-        if after in afterSet:
-            break
-        else:
-            afterSet.add(after)
+        self.sessionToken = responseDict['access_token']
+        self.sessionTokenType = responseDict['token_type']
+
+    def getFromAPI(self, requestedFile, after=""):
+        headers = {"Authorization": "{} {}".format(self.sessionTokenType,
+                                                   self.sessionToken),
+                   "User-Agent": _USER_AGENT_}
+        uri = "https://oauth.reddit.com" + requestedFile
+        if after != "":
+            uri += "?after={}".format(after)
+        response = requests.get(uri, headers=headers)
+        check_rate_limit(response) # for now, not doing anything with returned values 
+        return response.json()
+
+    def run(self, filterSubreddit):
+        self.authorize()
+
+        requestedFile = "/user/{}/saved".format(self.username)
+        responseDict = self.getFromAPI(requestedFile)
+
+        afterSet = set()
+        after = parse_response(responseDict['data'], filterSubreddit)
+        afterSet.add(after)
+
+        while True:
+            responseDict = self.getFromAPI(requestedFile, after)
+            after = parse_response(responseDict['data'], filterSubreddit)
+            if after in afterSet:
+                break
+            else:
+                afterSet.add(after)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        f = "hunterxhunter"
-        #f = "youtubehaiku"
-        main(f)
+    if len(sys.argv) > 2:
+        print ("Usage: python3 simpleClient.py [filterSubreddit]")
+        return
+    userAPIobj = UserAPIobject()
+    if len(sys.argv) == 2:
+        userAPIobj.run(sys.argv[1])
     else:
-        main(sys.argv[1])
+        userAPIobj.run("hunterxhunter")

@@ -101,9 +101,9 @@ class UserAPIobject:
 if __name__ == "__main__":
     if len(sys.argv) > 2:
         print ("Usage: python3 simpleClient.py [filterSubreddit]")
-        return
-    userAPIobj = UserAPIobject()
-    if len(sys.argv) == 2:
-        userAPIobj.run(sys.argv[1])
     else:
-        userAPIobj.run("hunterxhunter")
+        userAPIobj = UserAPIobject()
+        if len(sys.argv) == 2:
+            userAPIobj.run(sys.argv[1])
+        else:
+            userAPIobj.run("hunterxhunter")

@@ -47,10 +47,10 @@ class UserAPIobject:
     sessionTokenType = ""
 
     def __init__(self):
-        with open('client.id', 'r') as file1, \
-                open('client.secret', 'r') as file2, \
-                open('user.name', 'r') as file3, \
-                open('user.pass', 'r') as file4:
+        with open('creds/client.id', 'r') as file1, \
+                open('creds/client.secret', 'r') as file2, \
+                open('creds/user.name', 'r') as file3, \
+                open('creds/user.pass', 'r') as file4:
             self.clientID = file1.read().replace('\n', '')
             self.clientSecret = file2.read().replace('\n', '')
             self.username = file3.read().replace('\n', '')
@@ -101,9 +101,15 @@ class UserAPIobject:
 if __name__ == "__main__":
     if len(sys.argv) > 2:
         print ("Usage: python3 simpleClient.py [filterSubreddit]")
-    else:
+        sys.exit() # exit early
+
+    try:
         userAPIobj = UserAPIobject()
         if len(sys.argv) == 2:
             userAPIobj.run(sys.argv[1])
         else:
             userAPIobj.run("hunterxhunter")
+    except KeyboardInterrupt:
+        print ("exiting...")
+    finally:
+        sys.exit()

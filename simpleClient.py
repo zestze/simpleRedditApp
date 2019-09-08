@@ -46,6 +46,9 @@ class UserAPIobject:
     sessionToken = ""
     sessionTokenType = ""
 
+    # for fun: interested in num of saved posts per subreddit
+    subredditMap = {}
+
     def __init__(self):
         with open('creds/client.id', 'r') as file1, \
                 open('creds/client.secret', 'r') as file2, \
@@ -80,6 +83,27 @@ class UserAPIobject:
         check_rate_limit(response) # for now, not doing anything with returned values 
         return response.json()
 
+    def logSubreddit(self, responseDict):
+        """
+        responseDict['children'] is a list of children.
+        Each has multiple attributes like
+        url, title, subreddit, name
+        """
+        for childDict in responseDict['children']:
+            dataDict = childDict['data']
+            subredditName = dataDict['subreddit']
+            if subredditName in self.subredditMap:
+                self.subredditMap[subredditName] += 1
+            else:
+                self.subredditMap[subredditName] = 1
+
+    def printSubredditMap(self):
+        listOfTuples = sorted(self.subredditMap.items(), 
+                              key=lambda x: x[1],
+                              reverse=True)
+        for name, count in listOfTuples:
+            print ("{:<30}: {}".format(name, count))
+
     def run(self, filterSubreddit):
         self.authorize()
 
@@ -93,10 +117,17 @@ class UserAPIobject:
         while True:
             responseDict = self.getFromAPI(requestedFile, after)
             after = parse_response(responseDict['data'], filterSubreddit)
+            self.logSubreddit(responseDict['data'])
             if after in afterSet:
                 break
             else:
                 afterSet.add(after)
+
+        # prompt user to see if they'd like to see a 
+        # category map of their saves posts
+        response = input("Would you like to see your subreddit map? [Y\\N]: ")
+        if response == "Y" or response == "y":
+            self.printSubredditMap()
 
 if __name__ == "__main__":
     if len(sys.argv) > 2:
@@ -109,6 +140,7 @@ if __name__ == "__main__":
             userAPIobj.run(sys.argv[1])
         else:
             userAPIobj.run("hunterxhunter")
+
     except KeyboardInterrupt:
         print ("exiting...")
     finally:

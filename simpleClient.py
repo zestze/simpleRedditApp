@@ -5,24 +5,22 @@ simple python client for grabbing a users saved links by subreddit
 
 import requests
 import requests.auth
-import string
-import re
-import sys
+import argparse
 
 _USER_AGENT_ = "simpleRedditClient/0.1 by ZestyZeke"
 
-def parse_response(responseDict, filterSubreddit):
+def parse_response(response_dict, filter_subreddit):
     """
-    responseDict['children'] is a list of children.
+    response_dict['children'] is a list of children.
     Each has multiple attributes like
     url, title, subreddit, name
     """
-    for childDict in responseDict['children']:
-        dataDict = childDict['data']
-        if filterSubreddit == "" or dataDict['subreddit'].lower() == filterSubreddit.lower():
-            print ("https://www.reddit.com" + dataDict['permalink'])
+    for child_dict in response_dict['children']:
+        data_dict = child_dict['data']
+        if filter_subreddit == "" or data_dict['subreddit'].lower() == filter_subreddit.lower():
+            print ("https://www.reddit.com" + data_dict['permalink'])
 
-    return responseDict['after']
+    return response_dict['after']
 
 def check_rate_limit(response):
     """
@@ -47,7 +45,7 @@ class UserAPIobject:
     sessionTokenType = ""
 
     # for fun: interested in num of saved posts per subreddit
-    subredditMap = {}
+    subreddit_map = {}
 
     def __init__(self):
         with open('creds/client.id', 'r') as file1, \
@@ -68,80 +66,67 @@ class UserAPIobject:
                                  auth=client_auth, data=post_data,
                                  headers=headers)
 
-        responseDict = response.json()
-        self.sessionToken = responseDict['access_token']
-        self.sessionTokenType = responseDict['token_type']
+        response_dict = response.json()
+        self.sessionToken = response_dict['access_token']
+        self.sessionTokenType = response_dict['token_type']
 
-    def getFromAPI(self, requestedFile, after=""):
+    def getFromAPI(self, requested_file, after=""):
         headers = {"Authorization": "{} {}".format(self.sessionTokenType,
                                                    self.sessionToken),
                    "User-Agent": _USER_AGENT_}
-        uri = "https://oauth.reddit.com" + requestedFile
+        uri = "https://oauth.reddit.com" + requested_file
         if after != "":
             uri += "?after={}".format(after)
         response = requests.get(uri, headers=headers)
         check_rate_limit(response) # for now, not doing anything with returned values 
         return response.json()
 
-    def logSubreddit(self, responseDict):
+    def log_subreddit(self, response_dict):
         """
-        responseDict['children'] is a list of children.
+        response_dict['children'] is a list of children.
         Each has multiple attributes like
         url, title, subreddit, name
         """
-        for childDict in responseDict['children']:
-            dataDict = childDict['data']
-            subredditName = dataDict['subreddit']
-            if subredditName in self.subredditMap:
-                self.subredditMap[subredditName] += 1
+        for child_dict in response_dict['children']:
+            data_dict = child_dict['data']
+            subreddit_name = data_dict['subreddit']
+            if subreddit_name in self.subreddit_map:
+                self.subreddit_map[subreddit_name] += 1
             else:
-                self.subredditMap[subredditName] = 1
+                self.subreddit_map[subreddit_name] = 1
 
-    def printSubredditMap(self):
-        listOfTuples = sorted(self.subredditMap.items(), 
+    def print_subreddit_map(self):
+        list_of_tuples = sorted(self.subreddit_map.items(),
                               key=lambda x: x[1],
                               reverse=True)
-        for name, count in listOfTuples:
+        for name, count in list_of_tuples:
             print ("{:<30}: {}".format(name, count))
 
-    def run(self, filterSubreddit):
+    def run(self, filter_subreddit, show_map):
         self.authorize()
 
-        requestedFile = "/user/{}/saved".format(self.username)
-        responseDict = self.getFromAPI(requestedFile)
+        requested_file = "/user/{}/saved".format(self.username)
+        response_dict = self.getFromAPI(requested_file)
 
-        afterSet = set()
-        after = parse_response(responseDict['data'], filterSubreddit)
-        afterSet.add(after)
+        after_set = set()
+        after = parse_response(response_dict['data'], filter_subreddit)
 
-        while True:
-            responseDict = self.getFromAPI(requestedFile, after)
-            after = parse_response(responseDict['data'], filterSubreddit)
-            self.logSubreddit(responseDict['data'])
-            if after in afterSet:
-                break
-            else:
-                afterSet.add(after)
+        while after not in after_set:
+            after_set.add(after)
+            response_dict = self.getFromAPI(requested_file, after)
+            after = parse_response(response_dict['data'], filter_subreddit)
+            self.log_subreddit(response_dict['data'])
 
-        # prompt user to see if they'd like to see a 
-        # category map of their saves posts
-        response = input("Would you like to see your subreddit map? [Y\\N]: ")
-        if response == "Y" or response == "y":
-            self.printSubredditMap()
+        if show_map:
+            self.print_subreddit_map()
 
 if __name__ == "__main__":
-    if len(sys.argv) > 2:
-        print ("Usage: python3 simpleClient.py [filterSubreddit]")
-        sys.exit() # exit early
+    parser = argparse.ArgumentParser(description="Reddit app to filter saved posts by subreddit")
+    parser.add_argument('-f', '--filter', type=str, required=True,
+                        help='The subreddit to filter on')
+    parser.add_argument('-m', '--map', action='store_true',
+                        help='set if you would like to see a category map of saved posts')
 
-    try:
-        userAPIobj = UserAPIobject()
-        if len(sys.argv) == 2:
-            userAPIobj.run(sys.argv[1])
-        else:
-            userAPIobj.run("hunterxhunter")
-
-    except KeyboardInterrupt:
-        print ("exiting...")
-    finally:
-        sys.exit()
+    args = parser.parse_args()
+    userAPIobj = UserAPIobject()
+    userAPIobj.run(args.filter, args.map)
